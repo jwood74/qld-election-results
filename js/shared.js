@@ -58,6 +58,16 @@ function fmtDateTime(value) {
   });
 }
 
+function fmtTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("en-AU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function parsePct(value) {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "number") return value;

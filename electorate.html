@@ -29,13 +29,13 @@
           <tr>
             <th rowspan="2" class="col-booth sticky-col" data-sort-key="venueName">Booth</th>
             <th rowspan="2" class="col-num" data-sort-key="totalVotes">Total Votes</th>
-            <th rowspan="2" class="col-num" data-sort-key="formalPct">Formal %</th>
             <th colspan="2" class="group-tcp tcp-header-cell">
               <button id="tcp-candidate-picker" class="tcp-picker-btn" type="button">TCP</button>
               <div id="tcp-candidate-menu" class="tcp-menu" role="listbox" tabindex="-1" aria-hidden="true"></div>
             </th>
             <th colspan="6" class="group-primary-pct">Primary %</th>
             <th colspan="5" class="group-swing">Primary Swing</th>
+            <th rowspan="2" class="col-updated" data-sort-key="lastUpdated">Last Updated</th>
           </tr>
           <tr>
             <th class="col-num group-tcp" data-sort-key="selectedTcpPct">TCP%</th>
@@ -56,6 +56,19 @@
         </thead>
         <tbody id="results-body"></tbody>
       </table>
+    </div>
+
+    <div id="booth-modal" class="modal-backdrop" hidden>
+      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="booth-modal-title">
+        <div class="modal-header">
+          <div>
+            <h2 id="booth-modal-title">Booth details</h2>
+            <p id="booth-modal-subtitle" class="modal-subtitle"></p>
+          </div>
+          <button id="booth-modal-close" class="modal-close" type="button" aria-label="Close booth details">&times;</button>
+        </div>
+        <div id="booth-modal-content" class="modal-content"></div>
+      </section>
     </div>
   </main>
 
