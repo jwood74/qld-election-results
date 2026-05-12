@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Queensland Election Results</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Queensland Election Results</h1>
+    <p id="election-label" class="election-label"></p>
+  </header>
+
+  <main>
+    <div id="status" class="status">Loading results...</div>
+
+    <div class="table-wrapper">
+      <table id="results-table" aria-label="Queensland electorate results">
+        <thead>
+          <tr>
+            <th rowspan="2" class="col-electorate sticky-col" data-sort-key="electorateName">Electorate</th>
+            <th rowspan="2" class="col-num" data-sort-key="enrolment">Enrolment</th>
+            <th rowspan="2" class="col-num" data-sort-key="totalVotes">Total Votes</th>
+            <th rowspan="2" class="col-num" data-sort-key="formalPct">Formal %</th>
+            <th colspan="1" class="group-tcp">Indicative TCP</th>
+            <th colspan="6" class="group-primary-pct">Primary %</th>
+            <th rowspan="2" class="col-updated" data-sort-key="lastUpdatedTime">Last Updated</th>
+          </tr>
+          <tr>
+            <th class="col-num group-tcp" data-sort-key="leaderTcpPct">Leader TCP%</th>
+            <th class="col-num group-primary-pct col-party-alp" data-sort-key="alpPct">ALP</th>
+            <th class="col-num group-primary-pct col-party-lnp" data-sort-key="lnpPct">LNP</th>
+            <th class="col-num group-primary-pct col-party-kap" data-sort-key="kapPct">KAP</th>
+            <th class="col-num group-primary-pct col-party-grn" data-sort-key="grnPct">GRN</th>
+            <th class="col-num group-primary-pct col-party-onp" data-sort-key="onpPct">ONP</th>
+            <th class="col-num group-primary-pct col-party-oth" data-sort-key="othPct">OTH</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+
+    <div class="table-filter-bar-wrapper">
+      <table id="filter-bar-table">
+        <tr id="filter-row">
+          <td class="col-electorate sticky-col"><input id="filter-electorate" type="text" placeholder="Search electorate" autocomplete="off" /></td>
+          <td class="col-num"></td>
+          <td class="col-num"></td>
+          <td class="col-num"></td>
+          <td class="col-num"></td>
+          <td class="col-num col-party-alp" id="total-alpPct"></td>
+          <td class="col-num col-party-lnp" id="total-lnpPct"></td>
+          <td class="col-num col-party-kap" id="total-kapPct"></td>
+          <td class="col-num col-party-grn" id="total-grnPct"></td>
+          <td class="col-num col-party-onp" id="total-onpPct"></td>
+          <td class="col-num col-party-oth" id="total-othPct"></td>
+          <td class="col-updated"></td>
+        </tr>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    <p>Source: <a href="https://results.elections.qld.gov.au/">Electoral Commission of Queensland results data</a>. Code: <a href="https://github.com/jwood74/qld-election-results">GitHub</a></p>
+  </footer>
+
+  <script src="js/shared.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

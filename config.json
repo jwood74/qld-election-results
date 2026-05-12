@@ -1,0 +1,11 @@
+{
+  "electionId": "Hinchinbrook2025",
+  "historicElectionId": "SGE2024",
+  "refreshSeconds": 60,
+  "electorateMappings": {},
+  "boothMappings": {
+    "hinchinbrook": {
+      "38802": 357
+    }
+  }
+}
