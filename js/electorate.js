@@ -716,32 +716,71 @@ function renderBoothModal(row, currentResult, historicResult) {
   const content = document.getElementById("booth-modal-content");
   if (!content) return;
   content.innerHTML = "";
+  content.appendChild(renderModalColumnHeaders());
 
-  const sections = makeEl("div", "modal-section-grid");
-  sections.appendChild(renderDetailSection("Current", row, currentResult, false));
-  sections.appendChild(renderDetailSection("Historic", row, historicResult, true));
-  content.appendChild(sections);
+  content.appendChild(renderComparisonSection(
+    "Summary",
+    renderStatsPanel("Current", row, currentResult, false),
+    renderStatsPanel("Historic", row, historicResult, true),
+  ));
+  content.appendChild(renderComparisonSection(
+    "Primary Vote",
+    renderChartPanel("Current", currentResult, renderPrimaryChart, detail => primaryRows(detail).length, "primary vote"),
+    renderChartPanel("Historic", historicResult, renderPrimaryChart, detail => primaryRows(detail).length, "primary vote"),
+  ));
+  content.appendChild(renderComparisonSection(
+    "TCP / Final Count",
+    renderChartPanel("Current", currentResult, renderTcpChart, detail => selectedRows(detail).length, "TCP / final count"),
+    renderChartPanel("Historic", historicResult, renderTcpChart, detail => selectedRows(detail).length, "TCP / final count"),
+  ));
+  content.appendChild(renderComparisonSection(
+    "Preference Flows",
+    renderChartPanel("Current", currentResult, renderFlowChart, detail => otherRows(detail).length, "preference flows", detail => detail.flowDetail || detail),
+    renderChartPanel("Historic", historicResult, renderFlowChart, detail => otherRows(detail).length, "preference flows", detail => detail.flowDetail || detail),
+  ));
 }
 
-function renderDetailSection(label, row, result, historic) {
+function renderModalColumnHeaders() {
+  const headers = makeEl("div", "modal-column-headers");
+  headers.appendChild(makeEl("h3", "", "Current"));
+  headers.appendChild(makeEl("h3", "", "Historic"));
+  return headers;
+}
+
+function renderComparisonSection(title, currentPanel, historicPanel) {
+  const section = makeEl("section", "comparison-section");
+  section.appendChild(makeEl("h3", "", title));
+  const grid = makeEl("div", "modal-section-grid");
+  grid.appendChild(currentPanel);
+  grid.appendChild(historicPanel);
+  section.appendChild(grid);
+  return section;
+}
+
+function renderStatsPanel(label, row, result, historic) {
   const section = makeEl("section", "booth-detail-section");
-  section.appendChild(makeEl("h3", "", label));
 
   if (result?.error) {
-    section.appendChild(makeEl("p", "modal-warning", `Unable to load ${label.toLowerCase()} preference detail: ${result.error.message}`));
+    section.appendChild(makeEl("p", "modal-warning", `Unable to load ${label.toLowerCase()} detail: ${result.error.message}`));
   }
-  if (!result?.data) {
-    if (!result?.error) section.appendChild(makeEl("p", "modal-warning", `${label} preference detail is unavailable.`));
-    section.appendChild(renderStatsGrid(row, null, historic));
+  section.appendChild(renderStatsGrid(row, result?.data || null, historic));
+  return section;
+}
+
+function renderChartPanel(label, result, renderChart, hasData, unavailableLabel, selectDetail = detail => detail) {
+  const section = makeEl("section", "booth-detail-section");
+
+  if (result?.error) {
+    section.appendChild(makeEl("p", "modal-warning", `Unable to load ${label.toLowerCase()} ${unavailableLabel}: ${result.error.message}`));
+    return section;
+  }
+  const detail = result?.data ? selectDetail(result.data) : null;
+  if (!detail || !hasData(detail)) {
+    section.appendChild(makeEl("p", "modal-warning", `${label} ${unavailableLabel} is unavailable.`));
     return section;
   }
 
-  const detail = result.data;
-  section.appendChild(renderStatsGrid(row, detail, historic));
-  section.appendChild(renderPrimaryChart(detail));
-  if (selectedRows(detail).length) section.appendChild(renderTcpChart(detail));
-  const flowDetail = detail.flowDetail || detail;
-  if (otherRows(flowDetail).length) section.appendChild(renderFlowChart(flowDetail));
+  section.appendChild(renderChart(detail));
   return section;
 }
 

@@ -416,7 +416,7 @@ footer a {
 
 .modal-panel {
   width: min(1180px, 100%);
-  max-height: min(88vh, 900px);
+  max-height: min(94vh, 980px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -467,7 +467,19 @@ footer a {
 
 .modal-content {
   overflow: auto;
-  padding: 1rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.modal-column-headers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 0.45rem;
+}
+
+.modal-column-headers h3 {
+  color: #00529b;
+  font-size: 1rem;
 }
 
 .modal-section-grid {
@@ -476,18 +488,34 @@ footer a {
   gap: 1rem;
 }
 
+.comparison-section {
+  margin-bottom: 0.7rem;
+}
+
+.comparison-section:last-child {
+  margin-bottom: 0;
+}
+
+.comparison-section > h3 {
+  margin-bottom: 0.35rem;
+  color: #00529b;
+  font-size: 1rem;
+}
+
 .booth-detail-section {
   min-width: 0;
   border: 1px solid #d8dee8;
   border-radius: 8px;
   background: #fff;
-  padding: 0.8rem;
+  padding: 0.65rem;
 }
 
-.booth-detail-section h3 {
-  margin-bottom: 0.65rem;
-  color: #00529b;
-  font-size: 1rem;
+.comparison-section .chart-block {
+  margin-top: 0;
+}
+
+.comparison-section .chart-block h4 {
+  display: none;
 }
 
 .modal-warning {
