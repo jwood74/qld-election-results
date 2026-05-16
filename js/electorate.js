@@ -214,6 +214,7 @@ function parseBoothRow(preliminary, indicative, historicRow, historicVenueId) {
   const row = {
     venueId: preliminary.venueId,
     venueName: preliminary.venueName,
+    boothSortRank: boothSortRank(preliminary),
     totalVotes: preliminary.totalVotes ?? null,
     formalVotes: preliminary.formalVotes ?? null,
     informalVotes: preliminary.informalVotes ?? null,
@@ -271,6 +272,24 @@ function parseBoothRow(preliminary, indicative, historicRow, historicVenueId) {
 
 function candidateKey(candidate) {
   return `${candidate.ballotOrder ?? candidate.name}:${candidate.group}`;
+}
+
+function boothSortRank(booth) {
+  const name = String(booth.venueName || "").toLowerCase();
+  const venueId = Number(booth.venueId);
+  if (
+    venueId >= 90000 ||
+    name.includes("postal") ||
+    name.includes("declaration") ||
+    name.includes("absent") ||
+    name.includes("mobile") ||
+    name.includes("telephone") ||
+    name.includes("returning officer")
+  ) {
+    return 2;
+  }
+  if (name.includes("early voting")) return 1;
+  return 0;
 }
 
 function tcpStorageKey() {
@@ -486,9 +505,18 @@ function fmtWinChance(value) {
 
 function renderCurrentRows() {
   stampSelectedTcpValues(allRowsData);
-  const rows = getSortedRows(allRowsData, sortState);
+  const rows = getBoothRowsForDisplay();
   renderTable(rows);
   renderTotals(rows);
+}
+
+function getBoothRowsForDisplay() {
+  if (sortState.key && sortState.direction) return getSortedRows(allRowsData, sortState);
+  return [...allRowsData].sort((a, b) => {
+    const rank = a.boothSortRank - b.boothSortRank;
+    if (rank !== 0) return rank;
+    return a.venueName.localeCompare(b.venueName, "en-AU");
+  });
 }
 
 function renderRow(row) {
