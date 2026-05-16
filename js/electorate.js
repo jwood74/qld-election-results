@@ -664,6 +664,12 @@ async function fetchBoothDetail(row, historic) {
   const key = `${electionId}:${stub}:${venueId}`;
   if (!cache.has(key)) {
     const request = fetchJson(endpoint(electionId, `indicative-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic }).catch(error => {
+      if (!historic) {
+        return fetchJson(endpoint(electionId, `preliminary-count-booth-${stub}-${venueId}.json`), { cacheBust: true });
+      }
+      cache.delete(key);
+      throw error;
+    }).catch(error => {
       cache.delete(key);
       throw error;
     });
@@ -699,8 +705,8 @@ function renderDetailSection(label, row, result, historic) {
   const detail = result.data;
   section.appendChild(renderStatsGrid(row, detail, historic));
   section.appendChild(renderPrimaryChart(detail));
-  section.appendChild(renderTcpChart(detail));
-  section.appendChild(renderFlowChart(detail));
+  if (selectedRows(detail).length) section.appendChild(renderTcpChart(detail));
+  if (otherRows(detail).length) section.appendChild(renderFlowChart(detail));
   return section;
 }
 
@@ -834,6 +840,24 @@ function otherRows(detail) {
 }
 
 function primaryRows(detail) {
+  if (detail.candidates?.length && !detail.selectedCandidates?.length && !detail.otherCandidates?.length) {
+    const total = Number(detail.formalVotes ?? detail.totalFormalVotes ?? detail.totalVotes ?? 0) || detail.candidates.reduce((sum, candidate) => sum + (Number(candidate.count ?? candidate.primary ?? 0) || 0), 0);
+    return detail.candidates.map(candidate => {
+      const group = partyGroup(candidate.partyCode, candidate.party);
+      const code = candidatePartyCode(candidate, group);
+      const name = candidate.candidateName || candidate.ballotName || PARTY_LABELS[group] || "Candidate";
+      const votes = Number(candidate.count ?? candidate.primary ?? 0) || 0;
+      return {
+        label: `${code} ${name}`,
+        code,
+        name,
+        group,
+        votes,
+        pct: parsePct(candidate.percentage) ?? (total > 0 ? (votes / total) * 100 : null),
+      };
+    }).sort((a, b) => b.votes - a.votes);
+  }
+
   const selected = selectedRows(detail).map(candidate => ({
     label: candidate.label,
     code: candidate.code,
