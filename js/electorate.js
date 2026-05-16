@@ -449,7 +449,7 @@ function calculatePrediction(rows) {
   const currentFormal = currentTcpFormalVotes || sumCurrentFormalVotes(matchedRows);
   const expectedFormal = historicFull.expectedFormalVotes;
   const proportionCounted = expectedFormal > 0 ? Math.min(currentFormal / expectedFormal, 1) : 1;
-  const adjustedSe = Math.max(MIN_WIN_CHANCE_SE, se * Math.sqrt(Math.max(0, 1 - proportionCounted)));
+  const adjustedSe = Math.max(MIN_WIN_CHANCE_SE, se) * Math.sqrt(Math.max(0, 1 - proportionCounted));
   const winChance = winChanceFromProjection(projectedPct / 100, adjustedSe / 100);
 
   return {
