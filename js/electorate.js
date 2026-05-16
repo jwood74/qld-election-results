@@ -13,6 +13,7 @@ let currentTcpFormalVotes = null;
 const ELECTORATE_SORT_STORAGE_KEY = "qld-electorate-table-sort";
 const currentBoothDetailCache = new Map();
 const historicBoothDetailCache = new Map();
+const MIN_WIN_CHANCE_SE = 1.5;
 let openBoothVenueId = null;
 
 document.addEventListener("DOMContentLoaded", init);
@@ -414,7 +415,7 @@ function calculatePrediction(rows) {
   const currentFormal = currentTcpFormalVotes || sumCurrentFormalVotes(matchedRows);
   const expectedFormal = historicFull.expectedFormalVotes;
   const proportionCounted = expectedFormal > 0 ? Math.min(currentFormal / expectedFormal, 1) : 1;
-  const adjustedSe = se * Math.sqrt(Math.max(0, 1 - proportionCounted));
+  const adjustedSe = Math.max(MIN_WIN_CHANCE_SE, se * Math.sqrt(Math.max(0, 1 - proportionCounted)));
   const winChance = winChanceFromProjection(projectedPct / 100, adjustedSe / 100);
 
   return {
@@ -609,11 +610,7 @@ function aggregateSelectedTcp(rows, selected, historic) {
   let votes = 0;
   let formalVotesTotal = 0;
   for (const row of rows) {
-    const totalVotes = historic ? (row.historicTotalVotes || 0) : (row.totalVotes || 0);
-    const formalPct = historic ? row.historicFormalPct : row.formalPct;
-    const formalVotes = historic
-      ? (row.historicFormalVotes ?? (formalPct !== null ? totalVotes * (formalPct / 100) : 0))
-      : (row.formalVotes ?? (formalPct !== null ? totalVotes * (formalPct / 100) : 0));
+    const formalVotes = currentFormalVotes(row);
     const pct = historic ? row.historicTcpPctByGroup[selected.group] : row.selectedTcpPct;
     if (pct !== null && pct !== undefined) {
       votes += formalVotes * (pct / 100);
