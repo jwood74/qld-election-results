@@ -71,12 +71,13 @@ async function loadAndRender() {
   const historicStub = getHistoricStub(config, electorateStub);
   currentBoothDetailCache.clear();
 
-  const [metadata, current, historic] = await Promise.all([
+  const [metadata, current, historic, boundaryVenues] = await Promise.all([
     loadElectionMetadata(config.electionId).catch(() => null),
     fetchJson(endpoint(config.electionId, `table-booths-${electorateStub}.json`), { cacheBust: true }),
     config.historicElectionId
       ? fetchJson(endpoint(config.historicElectionId, `table-booths-${historicStub}.json`), { cacheBust: true }).catch(() => null)
       : Promise.resolve(null),
+    fetchJson(endpoint(config.electionId, "boundary_venues.json"), { cacheBust: true }).catch(() => null),
   ]);
 
   setElectionLabel(metadata ? `${metadata.electionName} (${config.electionId})` : config.electionId);
@@ -84,7 +85,7 @@ async function loadAndRender() {
 
   configureTcpCandidates(current.indicative?.totals);
   configureHistoricTotals(historic?.indicative?.totals, historic?.preliminary?.totals);
-  allRowsData = buildRows(current, historic);
+  allRowsData = buildRows(current, historic, boundaryVenues);
   stampSelectedTcpValues(allRowsData);
   renderTcpCandidateDropdown();
   renderCurrentRows();
@@ -124,7 +125,7 @@ function configureHistoricTotals(indicativeTotals, preliminaryTotals) {
   }
 }
 
-function buildRows(current, historic) {
+function buildRows(current, historic, boundaryVenues) {
   const historicByVenueId = new Map();
   if (historic) {
     for (const booth of historic.preliminary?.booths || []) {
@@ -139,12 +140,50 @@ function buildRows(current, historic) {
   }
 
   const indicativeByVenueId = new Map((current.indicative?.booths || []).map(booth => [String(booth.venueId), booth]));
-  return (current.preliminary?.booths || []).map(preliminary => {
+  const preliminaryBooths = current.preliminary?.booths || [];
+  const preliminaryByVenueId = new Map(preliminaryBooths.map(booth => [String(booth.venueId), booth]));
+  const venueRows = getBoundaryVenueRows(boundaryVenues, electorateStub);
+  const sourceBooths = venueRows.length ? venueRows : preliminaryBooths;
+  const seenVenueIds = new Set();
+
+  const rows = sourceBooths.map(booth => {
+    const venueId = booth.venueId ?? booth.venueCode;
+    seenVenueIds.add(String(venueId));
+    const preliminary = preliminaryByVenueId.get(String(venueId)) || boundaryVenueToBooth(booth);
     const indicative = indicativeByVenueId.get(String(preliminary.venueId)) || null;
     const historicVenueId = getHistoricVenueId(config, electorateStub, preliminary.venueId);
     const historicRow = historicByVenueId.get(String(historicVenueId)) || null;
     return parseBoothRow(preliminary, indicative, historicRow, historicVenueId);
   });
+
+  for (const preliminary of preliminaryBooths) {
+    if (seenVenueIds.has(String(preliminary.venueId))) continue;
+    const indicative = indicativeByVenueId.get(String(preliminary.venueId)) || null;
+    const historicVenueId = getHistoricVenueId(config, electorateStub, preliminary.venueId);
+    const historicRow = historicByVenueId.get(String(historicVenueId)) || null;
+    rows.push(parseBoothRow(preliminary, indicative, historicRow, historicVenueId));
+  }
+
+  return rows;
+}
+
+function getBoundaryVenueRows(boundaryVenues, stub) {
+  const entry = (boundaryVenues?.boundary_venues || []).find(item => item.stub === stub);
+  return (entry?.venues || []).filter(venue => !venue.abolished);
+}
+
+function boundaryVenueToBooth(venue) {
+  return {
+    venueId: venue.venueCode,
+    venueName: venue.venueName,
+    totalVotes: null,
+    formalVotes: null,
+    informalVotes: null,
+    informalVotesPercentage: null,
+    formalVotesPercentage: null,
+    lastUpdated: null,
+    candidates: [],
+  };
 }
 
 function parseBoothRow(preliminary, indicative, historicRow, historicVenueId) {
@@ -642,12 +681,6 @@ function renderBoothModal(row, currentResult, historicResult) {
   sections.appendChild(renderDetailSection("Current", row, currentResult, false));
   sections.appendChild(renderDetailSection("Historic", row, historicResult, true));
   content.appendChild(sections);
-
-  const current = currentResult?.data || null;
-  const historic = historicResult?.data || null;
-  if (current && historic) {
-    content.appendChild(renderFlowComparison(current, historic));
-  }
 }
 
 function renderDetailSection(label, row, result, historic) {
@@ -668,7 +701,6 @@ function renderDetailSection(label, row, result, historic) {
   section.appendChild(renderPrimaryChart(detail));
   section.appendChild(renderTcpChart(detail));
   section.appendChild(renderFlowChart(detail));
-  section.appendChild(renderFlowTable(detail));
   return section;
 }
 
@@ -678,12 +710,10 @@ function renderStatsGrid(row, detail, historic) {
   const formalPct = historic ? row.historicFormalPct : row.formalPct;
   const informalVotes = historic ? row.historicInformalVotes : row.informalVotes;
   const informalPct = historic ? row.historicInformalPct : row.informalPct;
-  const updated = detail?.lastUpdated || (historic ? null : row.lastUpdated);
   const grid = makeEl("dl", "stats-grid");
   appendStat(grid, "Total", fmtInt(totalVotes));
   appendStat(grid, "Formal", `${fmtInt(formalVotes)} (${fmtPct(formalPct)}%)`);
   appendStat(grid, "Informal", `${fmtInt(informalVotes)} (${fmtPct(informalPct)}%)`);
-  appendStat(grid, "Updated", fmtDateTime(updated));
   return grid;
 }
 
@@ -696,7 +726,7 @@ function renderPrimaryChart(detail) {
   const rows = primaryRows(detail);
   const chart = makeChartBlock("Primary Vote");
   for (const candidate of rows) {
-    chart.appendChild(renderSingleBar(candidate.label, candidate.pct, candidate.group, `${fmtInt(candidate.votes)} (${fmtPct(candidate.pct)}%)`));
+    chart.appendChild(renderSingleBar(candidate, candidate.pct, candidate.group, `${fmtInt(candidate.votes)} (${fmtPct(candidate.pct)}%)`));
   }
   return chart;
 }
@@ -705,7 +735,7 @@ function renderTcpChart(detail) {
   const chart = makeChartBlock("TCP / Final Count");
   for (const candidate of selectedRows(detail)) {
     const gain = candidate.preferences - candidate.primary;
-    chart.appendChild(renderSingleBar(candidate.label, candidate.pct, candidate.group, `${fmtInt(candidate.preferences)} (${fmtPct(candidate.pct)}%), gain ${fmtInt(gain)}`));
+    chart.appendChild(renderSingleBar(candidate, candidate.pct, candidate.group, `${fmtInt(candidate.preferences)} (${fmtPct(candidate.pct)}%), gain ${fmtInt(gain)}`));
   }
   return chart;
 }
@@ -719,12 +749,15 @@ function renderFlowChart(detail) {
     const toSecondPct = total > 0 ? (candidate.toSecond / total) * 100 : 0;
     const exhaustedPct = total > 0 ? (candidate.exhausted / total) * 100 : 0;
     const row = makeEl("div", "stacked-row");
-    row.appendChild(makeEl("div", "bar-label", candidate.label));
+    row.appendChild(renderCandidateLabel(candidate));
     const bar = makeEl("div", "stacked-bar");
     bar.appendChild(flowSegment(toFirstPct, selected[0]?.group, `${selected[0]?.label || "Candidate 1"}: ${fmtPct(toFirstPct)}%`));
     bar.appendChild(flowSegment(toSecondPct, selected[1]?.group, `${selected[1]?.label || "Candidate 2"}: ${fmtPct(toSecondPct)}%`));
-    bar.appendChild(flowSegment(exhaustedPct, "oth", `Exhausted: ${fmtPct(exhaustedPct)}%`));
+    if (candidate.exhausted > 0) {
+      bar.appendChild(flowSegment(exhaustedPct, "oth", `Exhausted: ${fmtPct(exhaustedPct)}%`));
+    }
     row.appendChild(bar);
+    row.appendChild(makeEl("div", "bar-value", flowPercentText(candidate, selected, total)));
     chart.appendChild(row);
   }
   return chart;
@@ -737,63 +770,15 @@ function flowSegment(width, group, title) {
   return segment;
 }
 
-function renderFlowTable(detail) {
-  const selected = selectedRows(detail);
-  const table = makeEl("table", "detail-table");
-  const thead = document.createElement("thead");
-  const header = document.createElement("tr");
-  ["Candidate", "Primary", selected[0]?.label || "Candidate 1", selected[1]?.label || "Candidate 2", "Exhausted"].forEach(text => header.appendChild(makeEl("th", "", text)));
-  thead.appendChild(header);
-  table.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  for (const candidate of otherRows(detail)) {
-    const total = candidate.primary || 0;
-    const tr = document.createElement("tr");
-    tr.appendChild(makeEl("td", "", candidate.label));
-    tr.appendChild(makeEl("td", "col-num", fmtInt(candidate.primary)));
-    tr.appendChild(makeEl("td", "col-num", flowCellText(candidate.toFirst, total)));
-    tr.appendChild(makeEl("td", "col-num", flowCellText(candidate.toSecond, total)));
-    tr.appendChild(makeEl("td", "col-num", flowCellText(candidate.exhausted, total)));
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  return table;
-}
-
-function renderFlowComparison(current, historic) {
-  const section = makeEl("section", "flow-comparison");
-  section.appendChild(makeEl("h3", "", "Current vs Historic Preference Flow"));
-  const table = makeEl("table", "detail-table");
-  const thead = document.createElement("thead");
-  const header = document.createElement("tr");
-  ["Current candidate", "Current flow", "Historic match", "Historic flow"].forEach(text => header.appendChild(makeEl("th", "", text)));
-  thead.appendChild(header);
-  table.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  const historicByKey = new Map(otherRows(historic).map(candidate => [alignmentKey(candidate), candidate]));
-  for (const candidate of otherRows(current)) {
-    const historicCandidate = historicByKey.get(alignmentKey(candidate));
-    const tr = document.createElement("tr");
-    tr.appendChild(makeEl("td", "", candidate.label));
-    tr.appendChild(makeEl("td", "", compactFlowText(candidate)));
-    tr.appendChild(makeEl("td", "", historicCandidate?.label || "-"));
-    tr.appendChild(makeEl("td", "", historicCandidate ? compactFlowText(historicCandidate) : "-"));
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  section.appendChild(table);
-  return section;
-}
-
 function makeChartBlock(title) {
   const block = makeEl("div", "chart-block");
   block.appendChild(makeEl("h4", "", title));
   return block;
 }
 
-function renderSingleBar(label, pct, group, valueText) {
+function renderSingleBar(candidate, pct, group, valueText) {
   const row = makeEl("div", "bar-row");
-  row.appendChild(makeEl("div", "bar-label", label));
+  row.appendChild(renderCandidateLabel(candidate));
   const track = makeEl("div", "bar-track");
   const fill = makeEl("div", `bar-fill ${partyClass(group)}`);
   fill.style.width = `${Math.max(0, Math.min(100, pct || 0))}%`;
@@ -803,11 +788,23 @@ function renderSingleBar(label, pct, group, valueText) {
   return row;
 }
 
+function renderCandidateLabel(candidate) {
+  const label = makeEl("div", "bar-label");
+  label.appendChild(makeEl("span", "candidate-code", candidate.code));
+  label.appendChild(document.createTextNode(" "));
+  label.appendChild(makeEl("span", "candidate-name", candidate.name));
+  return label;
+}
+
 function selectedRows(detail) {
   return (detail.selectedCandidates || []).map(candidate => {
     const group = partyGroup(candidate.partyCode, candidate.party);
+    const code = candidatePartyCode(candidate, group);
+    const name = candidate.candidateName || candidate.ballotName || PARTY_LABELS[group] || "Candidate";
     return {
-      label: candidate.candidateName || candidate.ballotName || PARTY_LABELS[group] || "Candidate",
+      label: `${code} ${name}`,
+      code,
+      name,
       group,
       primary: Number(candidate.primary ?? 0) || 0,
       preferences: Number(candidate.preferences ?? candidate.total ?? 0) || 0,
@@ -819,8 +816,12 @@ function selectedRows(detail) {
 function otherRows(detail) {
   return (detail.otherCandidates || []).map(candidate => {
     const group = partyGroup(candidate.partyCode, candidate.party);
+    const code = candidatePartyCode(candidate, group);
+    const name = candidate.candidateName || PARTY_LABELS[group] || "Candidate";
     return {
-      label: candidate.candidateName || PARTY_LABELS[group] || "Candidate",
+      label: `${code} ${name}`,
+      code,
+      name,
       party: candidate.party || "",
       partyCode: candidate.partyCode || "",
       group,
@@ -835,11 +836,15 @@ function otherRows(detail) {
 function primaryRows(detail) {
   const selected = selectedRows(detail).map(candidate => ({
     label: candidate.label,
+    code: candidate.code,
+    name: candidate.name,
     group: candidate.group,
     votes: candidate.primary,
   }));
   const others = otherRows(detail).map(candidate => ({
     label: candidate.label,
+    code: candidate.code,
+    name: candidate.name,
     group: candidate.group,
     votes: candidate.primary,
   }));
@@ -850,19 +855,23 @@ function primaryRows(detail) {
   })).sort((a, b) => b.votes - a.votes);
 }
 
-function flowCellText(count, total) {
-  const pct = total > 0 ? (count / total) * 100 : null;
-  return `${fmtInt(count)} (${fmtPct(pct)}%)`;
+function flowPercentText(candidate, selected, total) {
+  const values = [
+    `${selected[0]?.code || "1"} ${fmtPct(total > 0 ? (candidate.toFirst / total) * 100 : null)}%`,
+    `${selected[1]?.code || "2"} ${fmtPct(total > 0 ? (candidate.toSecond / total) * 100 : null)}%`,
+  ];
+  if (candidate.exhausted > 0) {
+    values.push(`EXH ${fmtPct(total > 0 ? (candidate.exhausted / total) * 100 : null)}%`);
+  }
+  return values.join(" | ");
 }
 
-function compactFlowText(candidate) {
-  const total = candidate.primary || 0;
-  return `1: ${flowCellText(candidate.toFirst, total)} | 2: ${flowCellText(candidate.toSecond, total)} | Exh: ${flowCellText(candidate.exhausted, total)}`;
-}
-
-function alignmentKey(candidate) {
-  if (candidate.group !== "oth") return `party:${candidate.group}`;
-  return `name:${String(candidate.label || "").trim().toLowerCase()}`;
+function candidatePartyCode(candidate, group) {
+  if (group && group !== "oth") return PARTY_LABELS[group] || group.toUpperCase().slice(0, 3);
+  const code = String(candidate.partyCode || "").trim().toUpperCase();
+  if (code) return code.slice(0, 3);
+  if (String(candidate.party || "").trim()) return "OTH";
+  return "IND";
 }
 
 function makeEl(tag, className = "", text = null) {
