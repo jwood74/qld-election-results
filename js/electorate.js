@@ -664,11 +664,7 @@ async function fetchBoothDetail(row, historic) {
   const key = `${electionId}:${stub}:${venueId}`;
   if (!cache.has(key)) {
     const request = fetchJson(endpoint(electionId, `indicative-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic }).catch(error => {
-      if (!historic) {
-        return fetchJson(endpoint(electionId, `preliminary-count-booth-${stub}-${venueId}.json`), { cacheBust: true });
-      }
-      cache.delete(key);
-      throw error;
+      return fetchJson(endpoint(electionId, `preliminary-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic });
     }).catch(error => {
       cache.delete(key);
       throw error;
