@@ -81,13 +81,14 @@ async function loadAndRender() {
   const historicStub = getHistoricStub(config, electorateStub);
   currentBoothDetailCache.clear();
 
-  const [metadata, current, historic, boundaryVenues] = await Promise.all([
+  const [metadata, current, historic, boundaryVenues, electoratesData] = await Promise.all([
     loadElectionMetadata(config.electionId).catch(() => null),
     fetchJson(endpoint(config.electionId, `table-booths-${electorateStub}.json`), { cacheBust: true }),
     config.historicElectionId
       ? fetchJson(endpoint(config.historicElectionId, `table-booths-${historicStub}.json`), { cacheBust: true }).catch(() => null)
       : Promise.resolve(null),
     fetchJson(endpoint(config.electionId, "boundary_venues.json"), { cacheBust: true }).catch(() => null),
+    fetchJson(endpoint(config.electionId, "electorates.json"), { cacheBust: true }).catch(() => null),
   ]);
 
   setElectionLabel(metadata ? `${metadata.electionName} (${config.electionId})` : config.electionId);
@@ -108,7 +109,8 @@ async function loadAndRender() {
   const historicText = config.historicElectionId
     ? ` Historic matches: ${matched}/${allRowsData.length}.`
     : " No historic election configured.";
-  setStatus(`${allRowsData.length} booth${allRowsData.length === 1 ? "" : "s"}. ECQ updated ${fmtDateTime(latestEcqUpdate)}. Last checked ${fmtDateTime(checkedAt)}.${historicText}`);
+  const turnoutText = turnoutSummary(current.preliminary?.totals, electoratesData);
+  setStatus(`${allRowsData.length} booth${allRowsData.length === 1 ? "" : "s"}. ECQ updated ${fmtDateTime(latestEcqUpdate)}. Last checked ${fmtDateTime(checkedAt)}.${turnoutText}${historicText}`);
   const status = document.getElementById("status");
   if (status) {
     status.title = config.historicElectionId
@@ -418,7 +420,14 @@ function renderPrediction() {
   predictionEl.className = `prediction ${partyClass(prediction.group)}`;
   predictionEl.textContent = prediction.unavailableReason
     ? `Prediction unavailable: ${prediction.unavailableReason}`
-    : `Prediction: ${prediction.label} projected TCP ${fmtPct(prediction.projectedPct)}% (${fmtSwing(prediction.swing)}%) | Win chance ${fmtWinChance(prediction.winChance)}`;
+    : `Prediction: ${prediction.label} TCP ${fmtPct(prediction.projectedPct)}% (${fmtSwing(prediction.swing)}%) | Win chance ${fmtWinChance(prediction.winChance)}`;
+}
+
+function turnoutSummary(preliminaryTotals, electoratesData) {
+  const totalVotes = Number(preliminaryTotals?.totalVotes ?? 0) || 0;
+  const enrolment = (electoratesData?.electorates || []).find(electorate => electorate.stub === electorateStub)?.enrolment;
+  if (!totalVotes || !enrolment) return "";
+  return ` Turnout ${fmtPct((totalVotes / enrolment) * 100)}%.`;
 }
 
 function calculatePrediction(rows) {
