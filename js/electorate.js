@@ -14,6 +14,13 @@ const ELECTORATE_SORT_STORAGE_KEY = "qld-electorate-table-sort";
 const currentBoothDetailCache = new Map();
 const historicBoothDetailCache = new Map();
 const MIN_WIN_CHANCE_SE = 1.5;
+const BOOTH_TYPE_GROUPS = [
+  { key: "pollingDay", label: "Polling day" },
+  { key: "prepoll", label: "Pre-poll" },
+  { key: "telephoneMobile", label: "Telephone / Mobile" },
+  { key: "postal", label: "Postal" },
+  { key: "otherSpecial", label: "Other special" },
+];
 let openBoothVenueId = null;
 
 document.addEventListener("DOMContentLoaded", init);
@@ -275,21 +282,27 @@ function candidateKey(candidate) {
 }
 
 function boothSortRank(booth) {
+  const type = boothType(booth);
+  if (type === "prepoll") return 1;
+  if (type === "pollingDay") return 0;
+  return 2;
+}
+
+function boothType(booth) {
   const name = String(booth.venueName || "").toLowerCase();
   const venueId = Number(booth.venueId);
+  if (name.includes("postal")) return "postal";
+  if (name.includes("telephone") || name.includes("mobile")) return "telephoneMobile";
+  if (name.includes("early voting")) return "prepoll";
   if (
     venueId >= 90000 ||
-    name.includes("postal") ||
     name.includes("declaration") ||
     name.includes("absent") ||
-    name.includes("mobile") ||
-    name.includes("telephone") ||
     name.includes("returning officer")
   ) {
-    return 2;
+    return "otherSpecial";
   }
-  if (name.includes("early voting")) return 1;
-  return 0;
+  return "pollingDay";
 }
 
 function tcpStorageKey() {
@@ -508,6 +521,7 @@ function renderCurrentRows() {
   const rows = getBoothRowsForDisplay();
   renderTable(rows);
   renderTotals(rows);
+  renderBoothTypeSummary(allRowsData);
 }
 
 function getBoothRowsForDisplay() {
@@ -594,7 +608,47 @@ function renderTotals(rows) {
   totalsRow.appendChild(makeCell("", "col-updated"));
 }
 
-function aggregateTotals(rows, historic) {
+function renderBoothTypeSummary(rows) {
+  const tbody = document.getElementById("booth-type-summary-body");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  for (const group of BOOTH_TYPE_GROUPS) {
+    const groupRows = rows.filter(row => boothType(row) === group.key);
+    if (!groupRows.length) continue;
+    tbody.appendChild(renderBoothTypeSummaryRow(group.label, groupRows));
+  }
+}
+
+function renderBoothTypeSummaryRow(label, rows) {
+  const tr = document.createElement("tr");
+  const current = aggregateTotals(rows, false, false);
+  const historic = aggregateTotals(rows, true, false);
+  const selected = getSelectedTcpCandidate();
+  const selectedClass = partyClass(selected?.group || "oth");
+
+  tr.appendChild(makeCell(label, "col-booth sticky-col"));
+  tr.appendChild(makeCell(fmtInt(current.totalVotes), "col-num"));
+  tr.appendChild(makeCell(fmtPct(current.selectedTcpPct), `col-num ${selectedClass}`));
+  tr.appendChild(swingCell(current.selectedTcpSwing, `${selectedClass} col-swing`));
+
+  for (const group of PARTY_GROUPS) {
+    tr.appendChild(makeCell(fmtPct(current[`${group}Pct`]), `col-num ${partyClass(group)}`));
+  }
+  for (const group of SWING_PARTY_GROUPS) {
+    const swing = current[`${group}Pct`] !== null && historic[`${group}Pct`] !== null
+      ? current[`${group}Pct`] - historic[`${group}Pct`]
+      : null;
+    tr.appendChild(swingCell(swing, `${partyClass(group)} col-swing`));
+  }
+
+  const updatedCell = makeCell(fmtTime(maxTimestamp(rows.map(row => row.lastUpdated))), "col-updated");
+  updatedCell.title = fmtDateTime(maxTimestamp(rows.map(row => row.lastUpdated)));
+  tr.appendChild(updatedCell);
+  return tr;
+}
+
+function aggregateTotals(rows, historic, useOverallSelectedTcp = true) {
   const result = {
     totalVotes: 0,
     formalVotes: 0,
@@ -606,6 +660,7 @@ function aggregateTotals(rows, historic) {
     selectedTcpSwing: null,
   };
   const groupVotes = Object.fromEntries(PARTY_GROUPS.map(group => [group, 0]));
+  const groupFound = Object.fromEntries(PARTY_GROUPS.map(group => [group, false]));
   const tcpVotes = {};
 
   for (const row of rows) {
@@ -618,7 +673,10 @@ function aggregateTotals(rows, historic) {
     result.formalVotes += formalVotes;
     for (const group of PARTY_GROUPS) {
       const pct = historic ? row[`historic${group}Pct`] : row[`${group}Pct`];
-      if (pct !== null && pct !== undefined) groupVotes[group] += formalVotes * (pct / 100);
+      if (pct !== null && pct !== undefined) {
+        groupFound[group] = true;
+        groupVotes[group] += formalVotes * (pct / 100);
+      }
     }
     const tcpByGroup = historic ? row.historicTcpPctByGroup : row.tcpPctByGroup;
     for (const [group, pct] of Object.entries(tcpByGroup || {})) {
@@ -628,13 +686,13 @@ function aggregateTotals(rows, historic) {
 
   result.formalPct = result.totalVotes > 0 ? (result.formalVotes / result.totalVotes) * 100 : null;
   for (const group of PARTY_GROUPS) {
-    result[`${group}Pct`] = result.formalVotes > 0 ? (groupVotes[group] / result.formalVotes) * 100 : null;
+    result[`${group}Pct`] = result.formalVotes > 0 && groupFound[group] ? (groupVotes[group] / result.formalVotes) * 100 : null;
   }
 
   const selected = getSelectedTcpCandidate();
   if (!historic && selected) {
-    const currentSelected = selected.pct ?? aggregateSelectedTcp(rows, selected, false);
-    const historicTotal = historicTcpTotals[selected.group] ?? null;
+    const currentSelected = useOverallSelectedTcp ? (selected.pct ?? aggregateSelectedTcp(rows, selected, false)) : aggregateSelectedTcp(rows, selected, false);
+    const historicTotal = useOverallSelectedTcp ? (historicTcpTotals[selected.group] ?? null) : aggregateSelectedTcp(rows, selected, true);
     result.selectedTcpPct = currentSelected;
     result.selectedTcpSwing = currentSelected !== null && historicTotal !== null
       ? currentSelected - historicTotal

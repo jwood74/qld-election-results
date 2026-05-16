@@ -59,6 +59,40 @@
       </table>
     </div>
 
+    <section class="booth-type-summary">
+      <h2>Booth Type Summary</h2>
+      <div class="table-wrapper booth-type-summary-wrapper">
+        <table aria-label="Booth type summary">
+          <thead>
+            <tr>
+              <th rowspan="2" class="col-booth sticky-col">Booth Type</th>
+              <th rowspan="2" class="col-num">Total Votes</th>
+              <th colspan="2" class="group-tcp">TCP</th>
+              <th colspan="6" class="group-primary-pct">Primary %</th>
+              <th colspan="5" class="group-swing">Primary Swing</th>
+              <th rowspan="2" class="col-updated">Last Updated</th>
+            </tr>
+            <tr>
+              <th class="col-num group-tcp">TCP%</th>
+              <th class="col-num group-tcp">TCP Swing</th>
+              <th class="col-num group-primary-pct col-party-alp">ALP</th>
+              <th class="col-num group-primary-pct col-party-lnp">LNP</th>
+              <th class="col-num group-primary-pct col-party-kap">KAP</th>
+              <th class="col-num group-primary-pct col-party-grn">GRN</th>
+              <th class="col-num group-primary-pct col-party-onp">ONP</th>
+              <th class="col-num group-primary-pct col-party-oth">OTH</th>
+              <th class="col-num group-swing col-party-alp col-swing">ALP</th>
+              <th class="col-num group-swing col-party-lnp col-swing">LNP</th>
+              <th class="col-num group-swing col-party-kap col-swing">KAP</th>
+              <th class="col-num group-swing col-party-grn col-swing">GRN</th>
+              <th class="col-num group-swing col-party-onp col-swing">ONP</th>
+            </tr>
+          </thead>
+          <tbody id="booth-type-summary-body"></tbody>
+        </table>
+      </div>
+    </section>
+
     <div id="booth-modal" class="modal-backdrop" hidden>
       <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="booth-modal-title">
         <div class="modal-header">

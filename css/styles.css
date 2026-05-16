@@ -131,6 +131,20 @@ main {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
+.booth-type-summary {
+  margin-top: 1rem;
+}
+
+.booth-type-summary h2 {
+  margin-bottom: 0.4rem;
+  color: #00529b;
+  font-size: 1rem;
+}
+
+.booth-type-summary-wrapper {
+  max-height: none;
+}
+
 table {
   width: 100%;
   min-width: 980px;
