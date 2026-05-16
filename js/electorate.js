@@ -84,7 +84,7 @@ async function loadAndRender() {
   document.getElementById("electorate-label").textContent = current.electorateName || electorateStub;
 
   configureTcpCandidates(current.indicative?.totals);
-  configureHistoricTotals(historic?.indicative?.totals, historic?.preliminary?.totals);
+  configureHistoricTotals(historic?.preference?.totals || historic?.indicative?.totals, historic?.preliminary?.totals);
   allRowsData = buildRows(current, historic, boundaryVenues);
   stampSelectedTcpValues(allRowsData);
   renderTcpCandidateDropdown();
@@ -137,9 +137,15 @@ function buildRows(current, historic, boundaryVenues) {
       existing.indicative = booth;
       historicByVenueId.set(key, existing);
     }
+    for (const booth of historic.preference?.booths || []) {
+      const key = String(booth.venueId);
+      const existing = historicByVenueId.get(key) || { preliminary: null, indicative: null };
+      existing.indicative = booth;
+      historicByVenueId.set(key, existing);
+    }
   }
 
-  const indicativeByVenueId = new Map((current.indicative?.booths || []).map(booth => [String(booth.venueId), booth]));
+  const indicativeByVenueId = finalCountByVenueId(current);
   const preliminaryBooths = current.preliminary?.booths || [];
   const preliminaryByVenueId = new Map(preliminaryBooths.map(booth => [String(booth.venueId), booth]));
   const venueRows = getBoundaryVenueRows(boundaryVenues, electorateStub);
@@ -164,6 +170,16 @@ function buildRows(current, historic, boundaryVenues) {
     rows.push(parseBoothRow(preliminary, indicative, historicRow, historicVenueId));
   }
 
+  return rows;
+}
+
+function finalCountByVenueId(result) {
+  const rows = new Map();
+  for (const booth of result.indicative?.booths || []) rows.set(String(booth.venueId), booth);
+  for (const booth of result.preference?.booths || []) {
+    const key = String(booth.venueId);
+    if (!rows.has(key)) rows.set(key, booth);
+  }
   return rows;
 }
 
@@ -663,7 +679,11 @@ async function fetchBoothDetail(row, historic) {
   const cache = historic ? historicBoothDetailCache : currentBoothDetailCache;
   const key = `${electionId}:${stub}:${venueId}`;
   if (!cache.has(key)) {
-    const request = fetchJson(endpoint(electionId, `indicative-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic }).catch(error => {
+    const primaryDetailType = historic ? "preference" : "indicative";
+    const fallbackDetailType = historic ? "indicative" : "preference";
+    const request = fetchJson(endpoint(electionId, `${primaryDetailType}-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic }).catch(error => {
+      return fetchJson(endpoint(electionId, `${fallbackDetailType}-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic });
+    }).catch(error => {
       return fetchJson(endpoint(electionId, `preliminary-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic });
     }).catch(error => {
       cache.delete(key);
@@ -799,6 +819,24 @@ function renderCandidateLabel(candidate) {
 }
 
 function selectedRows(detail) {
+  if (detail.preferenceDistributionDetails?.primary?.length && detail.candidates?.length) {
+    const primaryByBallotOrder = new Map(detail.preferenceDistributionDetails.primary.map(candidate => [String(candidate.ballotOrderNumber), Number(candidate.primary ?? 0) || 0]));
+    return detail.candidates.map(candidate => {
+      const group = partyGroup(candidate.partyCode, candidate.party);
+      const code = candidatePartyCode(candidate, group);
+      const name = candidate.candidateName || candidate.ballotName || PARTY_LABELS[group] || "Candidate";
+      return {
+        label: `${code} ${name}`,
+        code,
+        name,
+        group,
+        primary: primaryByBallotOrder.get(String(candidate.ballotOrderNumber)) ?? 0,
+        preferences: Number(candidate.count ?? candidate.preferences ?? candidate.total ?? 0) || 0,
+        pct: parsePct(candidate.percentage ?? candidate.preferencesPercentage),
+      };
+    });
+  }
+
   return (detail.selectedCandidates || []).map(candidate => {
     const group = partyGroup(candidate.partyCode, candidate.party);
     const code = candidatePartyCode(candidate, group);
@@ -836,6 +874,24 @@ function otherRows(detail) {
 }
 
 function primaryRows(detail) {
+  if (detail.preferenceDistributionDetails?.primary?.length) {
+    const total = Number(detail.totalPrimary ?? detail.totalFormalVotes ?? detail.totalVotes ?? 0) || detail.preferenceDistributionDetails.primary.reduce((sum, candidate) => sum + (Number(candidate.primary ?? 0) || 0), 0);
+    return detail.preferenceDistributionDetails.primary.map(candidate => {
+      const group = partyGroup(candidate.partyCode, candidate.party);
+      const code = candidatePartyCode(candidate, group);
+      const name = candidate.candidateName || candidate.ballotName || PARTY_LABELS[group] || "Candidate";
+      const votes = Number(candidate.primary ?? 0) || 0;
+      return {
+        label: `${code} ${name}`,
+        code,
+        name,
+        group,
+        votes,
+        pct: total > 0 ? (votes / total) * 100 : null,
+      };
+    }).sort((a, b) => b.votes - a.votes);
+  }
+
   if (detail.candidates?.length && !detail.selectedCandidates?.length && !detail.otherCandidates?.length) {
     const total = Number(detail.formalVotes ?? detail.totalFormalVotes ?? detail.totalVotes ?? 0) || detail.candidates.reduce((sum, candidate) => sum + (Number(candidate.count ?? candidate.primary ?? 0) || 0), 0);
     return detail.candidates.map(candidate => {
