@@ -679,19 +679,37 @@ async function fetchBoothDetail(row, historic) {
   const cache = historic ? historicBoothDetailCache : currentBoothDetailCache;
   const key = `${electionId}:${stub}:${venueId}`;
   if (!cache.has(key)) {
-    const primaryDetailType = historic ? "preference" : "indicative";
-    const fallbackDetailType = historic ? "indicative" : "preference";
-    const request = fetchJson(endpoint(electionId, `${primaryDetailType}-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic }).catch(error => {
-      return fetchJson(endpoint(electionId, `${fallbackDetailType}-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic });
-    }).catch(error => {
-      return fetchJson(endpoint(electionId, `preliminary-count-booth-${stub}-${venueId}.json`), { cacheBust: !historic });
-    }).catch(error => {
-      cache.delete(key);
-      throw error;
-    });
+    const request = historic
+      ? fetchHistoricBoothDetail(electionId, stub, venueId).catch(error => {
+        cache.delete(key);
+        throw error;
+      })
+      : fetchBoothCount(electionId, "indicative", stub, venueId, true).catch(error => {
+        return fetchBoothCount(electionId, "preference", stub, venueId, true);
+      }).catch(error => {
+        return fetchBoothCount(electionId, "preliminary", stub, venueId, true);
+      }).catch(error => {
+        cache.delete(key);
+        throw error;
+      });
     cache.set(key, request);
   }
   return cache.get(key);
+}
+
+async function fetchHistoricBoothDetail(electionId, stub, venueId) {
+  const detail = await fetchBoothCount(electionId, "preference", stub, venueId, false).catch(error => {
+    return fetchBoothCount(electionId, "indicative", stub, venueId, false);
+  }).catch(error => {
+    return fetchBoothCount(electionId, "preliminary", stub, venueId, false);
+  });
+
+  const flowDetail = await fetchBoothCount(electionId, "indicative", stub, venueId, false).catch(() => null);
+  return flowDetail && flowDetail !== detail ? { ...detail, flowDetail } : detail;
+}
+
+function fetchBoothCount(electionId, type, stub, venueId, cacheBust) {
+  return fetchJson(endpoint(electionId, `${type}-count-booth-${stub}-${venueId}.json`), { cacheBust });
 }
 
 function renderBoothModal(row, currentResult, historicResult) {
@@ -722,7 +740,8 @@ function renderDetailSection(label, row, result, historic) {
   section.appendChild(renderStatsGrid(row, detail, historic));
   section.appendChild(renderPrimaryChart(detail));
   if (selectedRows(detail).length) section.appendChild(renderTcpChart(detail));
-  if (otherRows(detail).length) section.appendChild(renderFlowChart(detail));
+  const flowDetail = detail.flowDetail || detail;
+  if (otherRows(flowDetail).length) section.appendChild(renderFlowChart(flowDetail));
   return section;
 }
 
