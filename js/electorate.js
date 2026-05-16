@@ -529,7 +529,7 @@ function renderRow(row) {
   boothButton.addEventListener("click", () => openBoothModal(row));
   boothCell.appendChild(boothButton);
   tr.appendChild(boothCell);
-  tr.appendChild(makeCell(fmtInt(row.totalVotes), "col-num"));
+  tr.appendChild(totalVotesCell(row));
 
   const selected = getSelectedTcpCandidate();
   const selectedClass = partyClass(selected?.group || "oth");
@@ -550,6 +550,18 @@ function renderRow(row) {
   tr.appendChild(updatedCell);
 
   return tr;
+}
+
+function totalVotesCell(row) {
+  if (row.totalVotes !== null && row.totalVotes !== undefined) {
+    return makeCell(fmtInt(row.totalVotes), "col-num");
+  }
+  if (row.historicTotalVotes !== null && row.historicTotalVotes !== undefined) {
+    const cell = makeCell(`~${fmtInt(row.historicTotalVotes)}`, "col-num estimated-value");
+    cell.title = "Estimated from historic booth total votes";
+    return cell;
+  }
+  return makeCell("-", "col-num");
 }
 
 function renderTable(rows) {

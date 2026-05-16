@@ -660,6 +660,11 @@ footer a {
   text-align: right;
 }
 
+.estimated-value {
+  color: #6b7280;
+  font-style: italic;
+}
+
 .bar-fill.col-party-alp,
 .flow-segment.col-party-alp { background-color: #c8001e; }
 .bar-fill.col-party-lnp,
