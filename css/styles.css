@@ -80,6 +80,24 @@ main {
   display: none;
 }
 
+.action-link {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #b7c5d8;
+  border-radius: 6px;
+  background: #fff;
+  color: #00529b;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.action-link:hover,
+.action-link:focus {
+  background: #e8f0fb;
+  outline: none;
+}
+
 .breadcrumb {
   display: flex;
   align-items: center;
@@ -546,6 +564,42 @@ footer a {
   font-weight: 700;
 }
 
+.flow-card {
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.flow-card h2 {
+  margin-bottom: 0.7rem;
+  color: #00529b;
+  font-size: 1.05rem;
+}
+
+.flow-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 0.9rem;
+}
+
+.flow-chart {
+  max-width: 1180px;
+}
+
+.flow-page-row {
+  grid-template-columns: minmax(11rem, 1fr) minmax(16rem, 2fr) minmax(9rem, auto);
+}
+
+.flow-table-wrapper {
+  max-height: 52vh;
+}
+
+.flow-table-wrapper table {
+  min-width: 760px;
+}
+
 .chart-block {
   margin-top: 0.85rem;
 }
@@ -648,6 +702,14 @@ footer a {
 
   .modal-section-grid {
     grid-template-columns: 1fr;
+  }
+
+  .status-row {
+    flex-wrap: wrap;
+  }
+
+  .flow-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .bar-row,

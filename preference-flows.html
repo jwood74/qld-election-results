@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preference Flows - Queensland Election Results</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Queensland Election Results</h1>
+    <p id="election-label" class="election-label"></p>
+  </header>
+
+  <main>
+    <div class="breadcrumb">
+      <a id="back-link" href="index.html" class="back-link">Back to Booths</a>
+      <span id="electorate-label"></span>
+    </div>
+
+    <div id="status" class="status">Loading preference flows...</div>
+
+    <section class="flow-card">
+      <h2>Electorate Preference Flows</h2>
+      <dl id="flow-summary" class="stats-grid flow-summary"></dl>
+      <div id="flow-chart" class="flow-chart"></div>
+    </section>
+
+    <section class="flow-card">
+      <h2>Flow Detail</h2>
+      <div class="table-wrapper flow-table-wrapper">
+        <table id="flow-table" aria-label="Electorate preference flow detail">
+          <thead>
+            <tr>
+              <th class="col-electorate sticky-col">Candidate</th>
+              <th class="col-num">Primary</th>
+              <th id="flow-first-heading" class="col-num">Candidate 1</th>
+              <th id="flow-second-heading" class="col-num">Candidate 2</th>
+              <th class="col-num">Exhausted</th>
+            </tr>
+          </thead>
+          <tbody id="flow-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Source: <a href="https://results.elections.qld.gov.au/">Electoral Commission of Queensland results data</a>. Code: <a href="https://github.com/jwood74/qld-election-results">GitHub</a></p>
+  </footer>
+
+  <script src="js/shared.js"></script>
+  <script src="js/preference-flows.js"></script>
+</body>
+</html>

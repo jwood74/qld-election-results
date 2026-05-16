@@ -35,6 +35,8 @@ async function init() {
 
   try {
     config = await loadConfig();
+    const flowsLink = document.getElementById("preference-flows-link");
+    if (flowsLink) flowsLink.href = `preference-flows.html?electorate=${encodeURIComponent(electorateStub)}`;
     await loadAndRender();
     if (config.refreshSeconds > 0) {
       refreshTimer = setInterval(loadAndRender, config.refreshSeconds * 1000);
